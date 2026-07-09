@@ -68,7 +68,11 @@ impl AttestationRegistry {
     /// Requires `attester`'s authorization and that `attester` is
     /// currently allowlisted in the configured `attester-registry`.
     /// Overwrites any prior attestation for the same `record_hash`.
-    pub fn attest(env: Env, attester: Address, record_hash: BytesN<32>) -> Result<Attestation, Error> {
+    pub fn attest(
+        env: Env,
+        attester: Address,
+        record_hash: BytesN<32>,
+    ) -> Result<Attestation, Error> {
         attester.require_auth();
 
         let registry_id: Address = env
@@ -103,7 +107,9 @@ impl AttestationRegistry {
     /// by anyone — this is what lets a responder's QR scan independently
     /// check a card without an external oracle.
     pub fn get_attestation(env: Env, record_hash: BytesN<32>) -> Option<Attestation> {
-        env.storage().persistent().get(&DataKey::Attestation(record_hash))
+        env.storage()
+            .persistent()
+            .get(&DataKey::Attestation(record_hash))
     }
 }
 
