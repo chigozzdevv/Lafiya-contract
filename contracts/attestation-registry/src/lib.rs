@@ -52,6 +52,33 @@ impl AttestationRegistry {
             .set(&DataKey::AttesterRegistry, &attester_registry);
         Ok(())
     }
+
+    /// Record that `attester` verified the record hashing to `record_hash`.
+    /// Requires `attester`'s authorization and that `attester` is
+    /// currently allowlisted in the configured `attester-registry`.
+    /// Overwrites any prior attestation for the same `record_hash`.
+    pub fn attest(env: Env, attester: Address, record_hash: BytesN<32>) -> Result<Attestation, Error> {
+        attester.require_auth();
+
+        let registry_id: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::AttesterRegistry)
+            .ok_or(Error::NotInitialized)?;
+        let registry = attester_registry::AttesterRegistryClient::new(&env, &registry_id);
+        if !registry.is_attester(&attester) {
+            return Err(Error::AttesterNotAllowlisted);
+        }
+
+        let attestation = Attestation {
+            attester,
+            timestamp: env.ledger().timestamp(),
+        };
+        env.storage()
+            .persistent()
+            .set(&DataKey::Attestation(record_hash), &attestation);
+        Ok(attestation)
+    }
 }
 
 #[cfg(test)]
