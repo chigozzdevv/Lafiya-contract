@@ -54,6 +54,15 @@ impl AttesterRegistry {
         Ok(())
     }
 
+    /// Whether `attester` is currently allowlisted. Callable by anyone,
+    /// including other contracts (e.g. `attestation-registry`).
+    pub fn is_attester(env: Env, attester: Address) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Attester(attester))
+            .unwrap_or(false)
+    }
+
     fn admin(env: &Env) -> Result<Address, Error> {
         env.storage()
             .instance()
