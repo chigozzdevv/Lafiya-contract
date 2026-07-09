@@ -79,6 +79,13 @@ impl AttestationRegistry {
             .set(&DataKey::Attestation(record_hash), &attestation);
         Ok(attestation)
     }
+
+    /// Look up the latest attestation for `record_hash`, if any. Callable
+    /// by anyone — this is what lets a responder's QR scan independently
+    /// check a card without an external oracle.
+    pub fn get_attestation(env: Env, record_hash: BytesN<32>) -> Option<Attestation> {
+        env.storage().persistent().get(&DataKey::Attestation(record_hash))
+    }
 }
 
 #[cfg(test)]
