@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contract, contracterror, contracttype, Address, BytesN};
+use soroban_sdk::{contract, contracterror, contractimpl, contracttype, Address, BytesN, Env};
 
 /// Storage keys for the attestation registry.
 #[contracttype]
@@ -35,6 +35,24 @@ pub enum Error {
 
 #[contract]
 pub struct AttestationRegistry;
+
+#[contractimpl]
+impl AttestationRegistry {
+    /// Set the admin and the `attester-registry` contract this registry
+    /// consults for allowlist checks. Can only be called once; the caller
+    /// must authorize as the given `admin`.
+    pub fn initialize(env: Env, admin: Address, attester_registry: Address) -> Result<(), Error> {
+        if env.storage().instance().has(&DataKey::Admin) {
+            return Err(Error::AlreadyInitialized);
+        }
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage()
+            .instance()
+            .set(&DataKey::AttesterRegistry, &attester_registry);
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod test;
