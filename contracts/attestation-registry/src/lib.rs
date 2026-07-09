@@ -1,6 +1,8 @@
 #![no_std]
 
-use soroban_sdk::{contract, contracterror, contractimpl, contracttype, Address, BytesN, Env};
+use soroban_sdk::{
+    contract, contracterror, contractevent, contractimpl, contracttype, Address, BytesN, Env,
+};
 
 /// Storage keys for the attestation registry.
 #[contracttype]
@@ -20,6 +22,15 @@ enum DataKey {
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Attestation {
+    pub attester: Address,
+    pub timestamp: u64,
+}
+
+#[contractevent]
+#[derive(Clone, Debug)]
+pub struct AttestationRecorded {
+    #[topic]
+    pub record_hash: BytesN<32>,
     pub attester: Address,
     pub timestamp: u64,
 }
@@ -76,7 +87,15 @@ impl AttestationRegistry {
         };
         env.storage()
             .persistent()
-            .set(&DataKey::Attestation(record_hash), &attestation);
+            .set(&DataKey::Attestation(record_hash.clone()), &attestation);
+
+        AttestationRecorded {
+            record_hash,
+            attester: attestation.attester.clone(),
+            timestamp: attestation.timestamp,
+        }
+        .publish(&env);
+
         Ok(attestation)
     }
 
