@@ -1,4 +1,5 @@
 #![no_std]
+#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use soroban_sdk::{
     contract, contractclient, contracterror, contractevent, contractimpl, contracttype, Address,
@@ -124,4 +125,5 @@ impl AttestationRegistry {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod test;
