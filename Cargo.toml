@@ -3,6 +3,8 @@ resolver = "2"
 members = [
     "contracts/attester-registry",
     "contracts/attestation-registry",
+    "crates/lafiya-config",
+    "crates/lafiya-cli",
 ]
 
 [workspace.package]
