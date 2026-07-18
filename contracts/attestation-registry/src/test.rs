@@ -124,6 +124,54 @@ fn attest_without_attester_auth_fails() {
     assert_eq!(client.get_attestation(&record_hash), None);
 }
 
+#[contract]
+pub struct DummyContract;
+
+#[contractimpl]
+impl DummyContract {
+    pub fn hello(_env: Env) -> u32 {
+        123
+    }
+}
+
+#[test]
+fn attest_when_attester_registry_does_not_implement_is_attester_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let dummy_id = env.register(DummyContract, ());
+    let contract_id = env.register(AttestationRegistry, ());
+    let client = AttestationRegistryClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &dummy_id);
+
+    let attester = Address::generate(&env);
+    let record_hash = BytesN::from_array(&env, &[10u8; 32]);
+
+    let result = client.try_attest(&attester, &record_hash);
+    assert_eq!(result, Err(Ok(Error::InvalidRegistryWiring)));
+}
+
+#[test]
+fn attest_when_attester_registry_points_to_attestation_registry_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let another_registry_id = env.register(AttestationRegistry, ());
+    let contract_id = env.register(AttestationRegistry, ());
+    let client = AttestationRegistryClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &another_registry_id);
+
+    let attester = Address::generate(&env);
+    let record_hash = BytesN::from_array(&env, &[11u8; 32]);
+
+    let result = client.try_attest(&attester, &record_hash);
+    assert_eq!(result, Err(Ok(Error::InvalidRegistryWiring)));
+}
+
 fn parse_error_variants(content: &str) -> std::vec::Vec<std::string::String> {
     let mut variants = std::vec::Vec::new();
     if let Some(start_idx) = content.find("pub enum Error") {

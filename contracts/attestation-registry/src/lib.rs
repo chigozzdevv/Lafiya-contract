@@ -53,6 +53,7 @@ pub enum Error {
     NotInitialized = 1,
     AlreadyInitialized = 2,
     AttesterNotAllowlisted = 3,
+    InvalidRegistryWiring = 4,
 }
 
 #[contract]
@@ -92,7 +93,11 @@ impl AttestationRegistry {
             .get(&DataKey::AttesterRegistry)
             .ok_or(Error::NotInitialized)?;
         let registry = AttesterRegistryClient::new(&env, &registry_id);
-        if !registry.is_attester(&attester) {
+        let is_allowlisted = match registry.try_is_attester(&attester) {
+            Ok(Ok(res)) => res,
+            _ => return Err(Error::InvalidRegistryWiring),
+        };
+        if !is_allowlisted {
             return Err(Error::AttesterNotAllowlisted);
         }
 
