@@ -15,6 +15,8 @@ pub trait AttesterRegistryInterface {
     fn is_attester(env: Env, attester: Address) -> bool;
 }
 
+const SCHEMA_VERSION: u32 = 1;
+
 /// Storage keys for the attestation registry.
 #[contracttype]
 #[derive(Clone)]
@@ -25,6 +27,8 @@ enum DataKey {
     AttesterRegistry,
     /// Latest attestation recorded for a given record hash.
     Attestation(BytesN<32>),
+    /// The storage schema version of the contract.
+    SchemaVersion,
 }
 
 /// A single attestation: proof that `attester` verified the off-chain
@@ -72,8 +76,12 @@ impl AttestationRegistry {
         env.storage()
             .instance()
             .set(&DataKey::AttesterRegistry, &attester_registry);
+        env.storage()
+            .instance()
+            .set(&DataKey::SchemaVersion, &SCHEMA_VERSION);
         Ok(())
     }
+
 
     /// Record that `attester` verified the record hashing to `record_hash`.
     /// Requires `attester`'s authorization and that `attester` is
@@ -121,6 +129,14 @@ impl AttestationRegistry {
         env.storage()
             .persistent()
             .get(&DataKey::Attestation(record_hash))
+    }
+
+    /// Query the current storage schema version of the contract.
+    pub fn get_schema_version(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::SchemaVersion)
+            .unwrap_or(1)
     }
 }
 

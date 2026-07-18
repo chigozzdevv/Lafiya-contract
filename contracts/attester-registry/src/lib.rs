@@ -5,6 +5,8 @@ use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, Address, Env,
 };
 
+const SCHEMA_VERSION: u32 = 1;
+
 /// Storage keys for the attester registry.
 #[contracttype]
 #[derive(Clone)]
@@ -14,6 +16,8 @@ enum DataKey {
     /// Presence of this key (mapped to `true`) means the address is an
     /// allowlisted attester.
     Attester(Address),
+    /// The storage schema version of the contract.
+    SchemaVersion,
 }
 
 #[contracterror]
@@ -51,6 +55,9 @@ impl AttesterRegistry {
         }
         admin.require_auth();
         env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage()
+            .instance()
+            .set(&DataKey::SchemaVersion, &SCHEMA_VERSION);
         Ok(())
     }
 
@@ -82,6 +89,14 @@ impl AttesterRegistry {
             .persistent()
             .get(&DataKey::Attester(attester))
             .unwrap_or(false)
+    }
+
+    /// Query the current storage schema version of the contract.
+    pub fn get_schema_version(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::SchemaVersion)
+            .unwrap_or(1)
     }
 
     fn admin(env: &Env) -> Result<Address, Error> {

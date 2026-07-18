@@ -30,6 +30,12 @@ fn setup() -> (
 }
 
 #[test]
+fn get_schema_version_succeeds() {
+    let (_, client, _, _) = setup();
+    assert_eq!(client.get_schema_version(), 1);
+}
+
+#[test]
 fn attest_by_allowlisted_attester_succeeds() {
     let (env, client, attester_registry, _admin) = setup();
     let attester = Address::generate(&env);

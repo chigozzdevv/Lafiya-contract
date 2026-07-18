@@ -16,6 +16,14 @@ fn setup() -> (Env, AttesterRegistryClient<'static>, Address) {
 }
 
 #[test]
+fn get_schema_version_succeeds() {
+    let (_, client, admin) = setup();
+    assert_eq!(client.get_schema_version(), 1);
+    client.initialize(&admin);
+    assert_eq!(client.get_schema_version(), 1);
+}
+
+#[test]
 fn initialize_sets_admin() {
     let (_, client, admin) = setup();
     client.initialize(&admin);
