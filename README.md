@@ -144,7 +144,22 @@ rustup target add wasm32v1-none   # also picked up automatically via rust-toolch
 make check                        # fmt-check + clippy + test + wasm build
 ```
 
-Not yet deployed to testnet — deployment scripts and instructions land with the rest of milestone M1.
+### Deployment to Testnet
+
+To compile, deploy, and initialize the contracts on the Stellar Testnet, run:
+
+```bash
+./scripts/deploy-testnet.sh --identity <your-stellar-identity>
+```
+
+#### Options:
+- `-i, --identity <identity>`: The `stellar-cli` identity name to sign the deployment transactions. Can also be set via the `STELLAR_IDENTITY` environment variable.
+- `-a, --admin-address <address>`: (Optional) The admin address for initializing the contracts. If not specified, it defaults to the address of the selected identity.
+- `-n, --network <network>`: (Optional) The Stellar network to deploy to (defaults to `testnet`).
+- `-y, --yes`: (Optional) Skip the interactive confirmation prompt.
+
+The script builds the contract WASM files, deploys the `attester-registry` and `attestation-registry` contracts, calls their respective `initialize` functions, and saves the resulting contract IDs to `deployments/testnet.json` (or `deployments/<network>.json`).
+
 
 ## Privacy & Compliance
 
