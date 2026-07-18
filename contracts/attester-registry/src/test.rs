@@ -6,6 +6,8 @@ use super::*;
 use soroban_sdk::testutils::{Address as _, Events as _};
 use soroban_sdk::{Env, Event, IntoVal};
 
+use proptest::prelude::*;
+
 fn setup() -> (Env, AttesterRegistryClient<'static>, Address) {
     let env = Env::default();
     env.mock_all_auths();
@@ -132,4 +134,37 @@ fn add_attester_without_admin_auth_fails() {
     let result = client.try_add_attester(&attester);
     assert!(result.is_err());
     assert!(!client.is_attester(&attester));
+}
+
+#[test]
+fn property_random_sequences() {
+    const POOL_SIZE: usize = 4;
+
+    proptest::proptest!(|(ops in prop::collection::vec(
+        (any::<bool>(), 0..POOL_SIZE),
+        0..100,
+    ))| {
+        let (env, client, admin) = setup();
+        client.initialize(&admin);
+
+        let pool: std::vec::Vec<Address> =
+            (0..POOL_SIZE).map(|_| Address::generate(&env)).collect();
+
+        // Reference model as a bool-per-index (avoids Hash/Ord requirements on Address)
+        let mut reference = std::vec![false; POOL_SIZE];
+
+        for (is_add, idx) in &ops {
+            if *is_add {
+                client.add_attester(&pool[*idx]);
+                reference[*idx] = true;
+            } else {
+                client.remove_attester(&pool[*idx]);
+                reference[*idx] = false;
+            }
+
+            for (i, addr) in pool.iter().enumerate() {
+                assert_eq!(client.is_attester(addr), reference[i]);
+            }
+        }
+    });
 }
