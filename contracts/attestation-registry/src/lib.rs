@@ -133,11 +133,7 @@ impl AttestationRegistry {
     ) -> Result<Attestation, Error> {
         attester.require_auth();
 
-        let registry_id: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::AttesterRegistry)
-            .ok_or(Error::NotInitialized)?;
+        let registry_id = Self::attester_registry(&env)?;
         let registry = AttesterRegistryClient::new(&env, &registry_id);
         if !registry.is_attester(&attester) {
             return Err(Error::AttesterNotAllowlisted);
