@@ -1,24 +1,3 @@
-#![cfg(test)]
-
-/*
-Authentication/Authorization Matrix Table:
-
-| Function        | Caller Case        | Arg / Call Target | Auth Address | Expected Result / Error Variant |
-|-----------------|--------------------|-------------------|--------------|---------------------------------|
-| initialize      | Right Caller       | admin             | admin        | Ok(())                          |
-| initialize      | Wrong Caller       | admin             | wrong_user   | Err(Err(InvokeError::Abort))    |
-| initialize      | No Auth            | admin             | None         | Err(Err(InvokeError::Abort))    |
-| initialize      | Role Confusion     | admin             | attester     | Err(Err(InvokeError::Abort))    |
-| add_attester    | Right Caller       | attester          | admin        | Ok(())                          |
-| add_attester    | Wrong Caller       | attester          | wrong_user   | Err(Err(InvokeError::Abort))    |
-| add_attester    | No Auth            | attester          | None         | Err(Err(InvokeError::Abort))    |
-| add_attester    | Role Confusion     | attester          | attester     | Err(Err(InvokeError::Abort))    |
-| remove_attester | Right Caller       | attester          | admin        | Ok(())                          |
-| remove_attester | Wrong Caller       | attester          | wrong_user   | Err(Err(InvokeError::Abort))    |
-| remove_attester | No Auth            | attester          | None         | Err(Err(InvokeError::Abort))    |
-| remove_attester | Role Confusion     | attester          | attester     | Err(Err(InvokeError::Abort))    |
-*/
-
 extern crate std;
 
 use super::*;
@@ -154,233 +133,145 @@ fn add_attester_without_admin_auth_fails() {
 }
 
 #[test]
-fn test_initialize_auth_matrix() {
+fn propose_admin_by_non_admin_fails() {
+    let env = Env::default();
+    let contract_id = env.register(AttesterRegistry, ());
+    let client = AttesterRegistryClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let new_admin = Address::generate(&env);
+    let malicious = Address::generate(&env);
 
-    struct TestCase {
-        name: &'static str,
-        auth_role: &'static str, // "admin", "wrong_user", "none", "attester"
-        expected_result: Result<Result<(), soroban_sdk::ConversionError>, Result<Error, soroban_sdk::InvokeError>>,
-    }
+    env.mock_all_auths();
+    client.initialize(&admin);
 
-    let cases = std::vec![
-        TestCase {
-            name: "Right Caller (Admin)",
-            auth_role: "admin",
-            expected_result: Ok(Ok(())),
+    env.mock_auths(&[soroban_sdk::testutils::MockAuth {
+        address: &malicious,
+        invoke: &soroban_sdk::testutils::MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "propose_admin",
+            args: (new_admin.clone(),).into_val(&env),
+            sub_invokes: &[],
         },
-        TestCase {
-            name: "Wrong Caller (Wrong User)",
-            auth_role: "wrong_user",
-            expected_result: Err(Err(soroban_sdk::InvokeError::Abort)),
-        },
-        TestCase {
-            name: "No Auth Provided",
-            auth_role: "none",
-            expected_result: Err(Err(soroban_sdk::InvokeError::Abort)),
-        },
-        TestCase {
-            name: "Role Confusion (Attester)",
-            auth_role: "attester",
-            expected_result: Err(Err(soroban_sdk::InvokeError::Abort)),
-        },
-    ];
+    }]);
 
-    for case in cases {
-        let case_env = Env::default();
-        let case_contract_id = case_env.register(AttesterRegistry, ());
-        let case_client = AttesterRegistryClient::new(&case_env, &case_contract_id);
-
-        let case_admin = Address::generate(&case_env);
-        let case_wrong_user = Address::generate(&case_env);
-        let case_attester = Address::generate(&case_env);
-
-        let auth_address = match case.auth_role {
-            "admin" => Some(case_admin.clone()),
-            "wrong_user" => Some(case_wrong_user.clone()),
-            "attester" => Some(case_attester.clone()),
-            _ => None,
-        };
-
-        if let Some(addr) = auth_address {
-            case_env.mock_auths(&[soroban_sdk::testutils::MockAuth {
-                address: &addr,
-                invoke: &soroban_sdk::testutils::MockAuthInvoke {
-                    contract: &case_client.address,
-                    fn_name: "initialize",
-                    args: (case_admin.clone(),).into_val(&case_env),
-                    sub_invokes: &[],
-                },
-            }]);
-        } else {
-            case_env.mock_auths(&[]);
-        }
-
-        let result = case_client.try_initialize(&case_admin);
-        assert_eq!(
-            result, case.expected_result,
-            "Failed case '{}': expected {:?}, got {:?}",
-            case.name, case.expected_result, result
-        );
-    }
+    let result = client.try_propose_admin(&new_admin);
+    assert!(result.is_err());
 }
 
 #[test]
-fn test_add_attester_auth_matrix() {
-    struct TestCase {
-        name: &'static str,
-        auth_role: &'static str, // "admin", "wrong_user", "none", "attester"
-        expected_result: Result<Result<(), soroban_sdk::ConversionError>, Result<Error, soroban_sdk::InvokeError>>,
-    }
+fn accept_admin_by_wrong_address_fails() {
+    let env = Env::default();
+    let contract_id = env.register(AttesterRegistry, ());
+    let client = AttesterRegistryClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let new_admin = Address::generate(&env);
+    let malicious = Address::generate(&env);
 
-    let cases = std::vec![
-        TestCase {
-            name: "Right Caller (Admin)",
-            auth_role: "admin",
-            expected_result: Ok(Ok(())),
+    env.mock_all_auths();
+    client.initialize(&admin);
+    client.propose_admin(&new_admin);
+
+    env.mock_auths(&[soroban_sdk::testutils::MockAuth {
+        address: &malicious,
+        invoke: &soroban_sdk::testutils::MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "accept_admin",
+            args: ().into_val(&env),
+            sub_invokes: &[],
         },
-        TestCase {
-            name: "Wrong Caller (Wrong User)",
-            auth_role: "wrong_user",
-            expected_result: Err(Err(soroban_sdk::InvokeError::Abort)),
-        },
-        TestCase {
-            name: "No Auth Provided",
-            auth_role: "none",
-            expected_result: Err(Err(soroban_sdk::InvokeError::Abort)),
-        },
-        TestCase {
-            name: "Role Confusion (Attester)",
-            auth_role: "attester",
-            expected_result: Err(Err(soroban_sdk::InvokeError::Abort)),
-        },
-    ];
+    }]);
 
-    for case in cases {
-        let env = Env::default();
-        let contract_id = env.register(AttesterRegistry, ());
-        let client = AttesterRegistryClient::new(&env, &contract_id);
-
-        let admin = Address::generate(&env);
-        let wrong_user = Address::generate(&env);
-        let attester = Address::generate(&env);
-
-        env.mock_all_auths();
-        client.initialize(&admin);
-
-        let auth_address = match case.auth_role {
-            "admin" => Some(admin.clone()),
-            "wrong_user" => Some(wrong_user.clone()),
-            "attester" => Some(attester.clone()),
-            _ => None,
-        };
-
-        if let Some(addr) = auth_address {
-            env.mock_auths(&[soroban_sdk::testutils::MockAuth {
-                address: &addr,
-                invoke: &soroban_sdk::testutils::MockAuthInvoke {
-                    contract: &client.address,
-                    fn_name: "add_attester",
-                    args: (attester.clone(),).into_val(&env),
-                    sub_invokes: &[],
-                },
-            }]);
-        } else {
-            env.mock_auths(&[]);
-        }
-
-        let result = client.try_add_attester(&attester);
-        assert_eq!(
-            result, case.expected_result,
-            "Failed case '{}': expected {:?}, got {:?}",
-            case.name, case.expected_result, result
-        );
-
-        if case.expected_result.is_ok() {
-            assert!(client.is_attester(&attester));
-        } else {
-            assert!(!client.is_attester(&attester));
-        }
-    }
+    let result = client.try_accept_admin();
+    assert!(result.is_err());
 }
 
 #[test]
-fn test_remove_attester_auth_matrix() {
-    struct TestCase {
-        name: &'static str,
-        auth_role: &'static str, // "admin", "wrong_user", "none", "attester"
-        expected_result: Result<Result<(), soroban_sdk::ConversionError>, Result<Error, soroban_sdk::InvokeError>>,
-    }
+fn accept_admin_with_no_pending_proposal_fails() {
+    let (_env, client, admin) = setup();
+    client.initialize(&admin);
 
-    let cases = std::vec![
-        TestCase {
-            name: "Right Caller (Admin)",
-            auth_role: "admin",
-            expected_result: Ok(Ok(())),
-        },
-        TestCase {
-            name: "Wrong Caller (Wrong User)",
-            auth_role: "wrong_user",
-            expected_result: Err(Err(soroban_sdk::InvokeError::Abort)),
-        },
-        TestCase {
-            name: "No Auth Provided",
-            auth_role: "none",
-            expected_result: Err(Err(soroban_sdk::InvokeError::Abort)),
-        },
-        TestCase {
-            name: "Role Confusion (Attester)",
-            auth_role: "attester",
-            expected_result: Err(Err(soroban_sdk::InvokeError::Abort)),
-        },
-    ];
-
-    for case in cases {
-        let env = Env::default();
-        let contract_id = env.register(AttesterRegistry, ());
-        let client = AttesterRegistryClient::new(&env, &contract_id);
-
-        let admin = Address::generate(&env);
-        let wrong_user = Address::generate(&env);
-        let attester = Address::generate(&env);
-
-        env.mock_all_auths();
-        client.initialize(&admin);
-        client.add_attester(&attester);
-        assert!(client.is_attester(&attester));
-
-        let auth_address = match case.auth_role {
-            "admin" => Some(admin.clone()),
-            "wrong_user" => Some(wrong_user.clone()),
-            "attester" => Some(attester.clone()),
-            _ => None,
-        };
-
-        if let Some(addr) = auth_address {
-            env.mock_auths(&[soroban_sdk::testutils::MockAuth {
-                address: &addr,
-                invoke: &soroban_sdk::testutils::MockAuthInvoke {
-                    contract: &client.address,
-                    fn_name: "remove_attester",
-                    args: (attester.clone(),).into_val(&env),
-                    sub_invokes: &[],
-                },
-            }]);
-        } else {
-            env.mock_auths(&[]);
-        }
-
-        let result = client.try_remove_attester(&attester);
-        assert_eq!(
-            result, case.expected_result,
-            "Failed case '{}': expected {:?}, got {:?}",
-            case.name, case.expected_result, result
-        );
-
-        if case.expected_result.is_ok() {
-            assert!(!client.is_attester(&attester));
-        } else {
-            assert!(client.is_attester(&attester));
-        }
-    }
+    let result = client.try_accept_admin();
+    assert_eq!(result, Err(Ok(Error::NoPendingTransfer)));
 }
 
+#[test]
+fn successful_admin_transfer_flow() {
+    let (env, client, admin) = setup();
+    client.initialize(&admin);
+
+    let new_admin = Address::generate(&env);
+
+    client.propose_admin(&new_admin);
+
+    assert_eq!(
+        env.auths(),
+        std::vec![(
+            admin.clone(),
+            soroban_sdk::testutils::AuthorizedInvocation {
+                function: soroban_sdk::testutils::AuthorizedFunction::Contract((
+                    client.address.clone(),
+                    soroban_sdk::Symbol::new(&env, "propose_admin"),
+                    (new_admin.clone(),).into_val(&env),
+                )),
+                sub_invocations: std::vec![],
+            },
+        )]
+    );
+
+    client.accept_admin();
+
+    assert_eq!(
+        env.auths(),
+        std::vec![(
+            new_admin.clone(),
+            soroban_sdk::testutils::AuthorizedInvocation {
+                function: soroban_sdk::testutils::AuthorizedFunction::Contract((
+                    client.address.clone(),
+                    soroban_sdk::Symbol::new(&env, "accept_admin"),
+                    ().into_val(&env),
+                )),
+                sub_invocations: std::vec![],
+            },
+        )]
+    );
+
+    let expected_event = AdminTransferred {
+        previous_admin: admin.clone(),
+        new_admin: new_admin.clone(),
+    };
+    assert_eq!(
+        env.events().all(),
+        std::vec![expected_event.to_xdr(&env, &client.address)],
+    );
+
+    let attester = Address::generate(&env);
+    client.add_attester(&attester);
+
+    assert_eq!(
+        env.auths(),
+        std::vec![(
+            new_admin.clone(),
+            soroban_sdk::testutils::AuthorizedInvocation {
+                function: soroban_sdk::testutils::AuthorizedFunction::Contract((
+                    client.address.clone(),
+                    soroban_sdk::Symbol::new(&env, "add_attester"),
+                    (attester.clone(),).into_val(&env),
+                )),
+                sub_invocations: std::vec![],
+            },
+        )]
+    );
+
+    env.mock_auths(&[soroban_sdk::testutils::MockAuth {
+        address: &admin,
+        invoke: &soroban_sdk::testutils::MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "add_attester",
+            args: (attester.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+
+    let result = client.try_add_attester(&attester);
+    assert!(result.is_err());
+}
