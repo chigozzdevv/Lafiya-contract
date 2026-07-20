@@ -23,20 +23,5 @@ check: fmt-check clippy test wasm
 clean:
 	cargo clean
 
-# Config management - validates networks.toml and lists networks
-config-check:
-	@echo "Validating config/networks.toml..."
-	@cargo run -p lafiya-cli -- --network testnet config show --config config/networks.toml | head -n 20
-	@cargo test -p lafiya-config
-	@echo "Config OK. No secrets detected."
-
-config-list:
-	cargo run -p lafiya-cli -- config list --config config/networks.toml
-
-# Deploy wrapper (uses config/networks.toml, one-flag network switch)
-# Usage: make deploy NETWORK=testnet SOURCE=deployer
-deploy:
-	./scripts/deploy.sh --network $(or $(NETWORK),testnet) $(if $(SOURCE),--source $(SOURCE),) $(if $(ADMIN),--admin $(ADMIN),)
-
-admin-config:
-	./scripts/admin.sh --network $(or $(NETWORK),testnet) config show
+bench:
+	cargo test -- --nocapture
